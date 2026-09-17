@@ -45,6 +45,9 @@
          CONTEÚDO PRINCIPAL
          ======================================== -->
     <main class="main-content">
+        {% for message in messages %}
+        <div class="form-error" role="alert">{{ message }}</div>
+        {% endfor %}
         <div class="wrapper">
 
             <!-- TRANSAÇÕES -->

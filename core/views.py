@@ -1,192 +1,94 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from core.models import Transacao, Categoria, Conta
-import sqlite3
-from datetime import date
-from django.db.models import Sum
-from django.db.models.functions import ExtractYear
+from django.contrib import messages
+from django.db.models.deletion import ProtectedError
+from django.shortcuts import get_object_or_404, redirect, render
 
-""" from analytics.analysis import resumo_financeiro """
-from analytics import analysis
+from analytics.analysis import resumo_financeiro
+from .forms import (
+    CategoriaForm,
+    ContaForm,
+    EdicaoCategoriaForm,
+    EdicaoContaForm,
+    EdicaoTransacaoForm,
+    TransacaoForm,
+)
+from .models import Categoria, Conta, Transacao
 
 
-import pandas as pd #analise
-import plotly.express as px #exibição
-from plotly.offline import plot
-from django.http import HttpResponse
+FORMULARIOS_CADASTRO = {
+    'transacao': TransacaoForm,
+    'categoria': CategoriaForm,
+    'contas': ContaForm,
+}
+FORMULARIOS_EDICAO = {
+    'editar_transacao': (Transacao, 'tran_id', EdicaoTransacaoForm),
+    'editar_conta': (Conta, 'conta_id', EdicaoContaForm),
+    'editar_categoria': (Categoria, 'categoria_id', EdicaoCategoriaForm),
+}
+MODELOS_EXCLUSAO = {
+    'excluir_transacao': (Transacao, 'tran_id'),
+    'excluir_conta': (Conta, 'conta_id'),
+    'excluir_categoria': (Categoria, 'categoria_id'),
+}
 
-# Create your views here.
+
 def financas(request):
-
-    resumo_financas = analysis.resumo_financeiro()
-
+    erro_formulario = None
     if request.method == 'POST':
+        classe_formulario = FORMULARIOS_CADASTRO.get(request.POST.get('tipo_form'))
+        if classe_formulario:
+            formulario = classe_formulario(request.POST)
+            if formulario.is_valid():
+                formulario.save()
+                return redirect('home')
+            erro_formulario = formulario.errors
 
-        #pega o valor do input hidden, pra especificar nas consições
-        tipo_form = request.POST.get('tipo_form')
-
-        #Adicionar TransaçÃo
-        if tipo_form == 'transacao':
-
-            descricao = request.POST.get('descricao_t')
-            valor = request.POST.get('valor')
-            data = request.POST.get('data')
-            categoria_id = request.POST.get('categoria')
-            conta_id = request.POST.get('nome_conta')
-            obs = request.POST.get('observacoes')
-
-            Transacao.objects.create(
-                descricao = descricao,
-                valor = valor,
-                data = data,
-                categoria_id = categoria_id,
-                conta_id = conta_id,
-                observacao = obs,
-            )
-
-            return redirect('home')
-        
-
-        #Adicionar Categoria
-        elif tipo_form == 'categoria':
-
-            nome = request.POST.get('nome_cat')
-            descricao = request.POST.get('descricao_cat')
-            tipo = request.POST.get('tipo')
-
-            Categoria.objects.create(
-                nome = nome,
-                descricao = descricao,
-                tipo = tipo,
-            )
-
-            return redirect('home')
-
-
-        #Adicionar Conta
-        elif tipo_form == 'contas':
-
-            nome = request.POST.get('nome_conta')
-            saldo_inicial = (request.POST.get('saldo_inicial') or '').strip().replace(',', '.') or '0'
-
-            Conta.objects.create(
-                nome = nome,
-                saldo_inicial = saldo_inicial
-            )
-
-            return redirect('home')
-
-    context = {
-        **resumo_financas,
+    contexto = {
+        **resumo_financeiro(),
         'categorias': Categoria.objects.all(),
         'contas': Conta.objects.all(),
+        'erro_formulario': erro_formulario,
     }
+    return render(request, 'core/home.html', contexto)
 
-    return render(request, 'core/home.html', context)
 
-
-""" ========================TRANSACOES================================ """
 def transacoes(request):
-
-    categorias = Categoria.objects.all()
-    contas = Conta.objects.all()
-    transacoes = Transacao.objects.all()
-
-    context = {
-        'categorias': categorias,
-        'contas': contas,
-        'transacoes': transacoes
+    contexto = {
+        'categorias': Categoria.objects.all(),
+        'contas': Conta.objects.all(),
+        'transacoes': Transacao.objects.select_related('categoria', 'conta'),
     }
+    return render(request, 'core/transacoes.html', contexto)
 
-    return render(request, 'core/transacoes.html', context)
 
-
- #======================== CONFIGURAÇÕES ================================
 def configuracoes(request):
-
-    tipo_form = request.POST.get('tipo_form')
-
     if request.method == 'POST':
+        acao = request.POST.get('tipo_form')
 
-        #Transações ----------------------
-        if tipo_form == 'editar_transacao':
+        if acao in FORMULARIOS_EDICAO:
+            modelo, campo_id, classe_formulario = FORMULARIOS_EDICAO[acao]
+            instancia = get_object_or_404(modelo, pk=request.POST.get(campo_id))
+            formulario = classe_formulario(request.POST)
+            if formulario.is_valid():
+                formulario.save(instancia)
+            else:
+                messages.error(request, f'Revise os dados informados: {formulario.errors.as_text()}')
+        elif acao in MODELOS_EXCLUSAO:
+            modelo, campo_id = MODELOS_EXCLUSAO[acao]
+            instancia = get_object_or_404(modelo, pk=request.POST.get(campo_id))
+            try:
+                instancia.delete()
+            except ProtectedError:
+                messages.error(request, 'O registro possui transações e não pode ser excluído.')
 
-            transacao_id = request.POST.get('tran_id')
+        return redirect('configuracoes')
 
-            nova_desc = request.POST.get('nova_descricao')
-            nova_data = request.POST.get('nova_data')
-            novo_valor = request.POST.get('novo_valor')
-
-            transacao = get_object_or_404(Transacao, id = transacao_id)
-
-            transacao.descricao = nova_desc
-            transacao.data = nova_data
-            transacao.valor = novo_valor
-            transacao.save()
-
-        elif tipo_form == 'excluir_transacao':
-
-            transacao_id = request.POST.get('tran_id')
-
-            Transacao.objects.filter(id = transacao_id).delete()
-
-
-        #Contas ----------------------
-        elif tipo_form == 'editar_conta':
-
-            conta_id = request.POST.get('conta_id')
-
-            novo_nome = request.POST.get('novo_nome')
-            novo_saldoI = request.POST.get('novo_saldo')
-
-            conta = get_object_or_404(Conta, id = conta_id)
-
-            conta.nome = novo_nome
-            conta.saldo_inicial = novo_saldoI
-            conta.save()
-
-        #Excluir conta
-
-
-        #Categorias ----------------------
-        elif tipo_form == 'editar_categoria':
-
-            categoria_id = request.POST.get('categoria_id')
-
-            novo_nome = request.POST.get('novo_nome')
-            novo_tipo = request.POST.get('novo_tipo')
-
-            categoria = get_object_or_404(Categoria, id = categoria_id)
-            categoria.nome = novo_nome
-            categoria.tipo = novo_tipo
-            categoria.save()
-            
-        elif tipo_form == 'excluir_categoria':
-
-            categoria_id = request.POST.get('categoria_id')
-
-            Categoria.objects.filter(id = categoria_id).delete()
-
-    """ filtro_exibicao = request.GET.get('') """
-
-    #Pega a qunatidade de cada um
-    qtd_transacoes = Transacao.objects.count()
-    qtd_categorias = Categoria.objects.count()
-    qtd_contas = Conta.objects.count()
-
-    categorias = Categoria.objects.all()
-    contas = Conta.objects.all()
-    transacoes = Transacao.objects.all()
-
-
-    context = {
-        'qtd_transacoes': qtd_transacoes,
-        'qtd_categorias': qtd_categorias,
-        'qtd_contas': qtd_contas,
+    contexto = {
+        'qtd_transacoes': Transacao.objects.count(),
+        'qtd_categorias': Categoria.objects.count(),
+        'qtd_contas': Conta.objects.count(),
         'tipos_c': Categoria.TIPO_CHOICES,
-        'categorias': categorias,
-        'contas': contas,
-        'transacoes': transacoes
+        'categorias': Categoria.objects.all(),
+        'contas': Conta.objects.all(),
+        'transacoes': Transacao.objects.select_related('categoria', 'conta'),
     }
-
-    return render(request, 'core/configuracoes.html', context)
-
+    return render(request, 'core/configuracoes.html', contexto)

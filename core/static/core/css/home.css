@@ -584,3 +584,11 @@ body {
         gap: 16px;
     }
 }
+
+.form-error {
+    color: #991b1b;
+    background: #fee2e2;
+    padding: 12px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+}

@@ -50,6 +50,9 @@
          ======================================== -->
     <main class="main-content">
         <div class="container">
+            {% if erro_formulario %}
+            <div class="form-error" role="alert">Revise os dados informados: {{ erro_formulario }}</div>
+            {% endif %}
 
             <!-- Título da página -->
             <div class="page-header">

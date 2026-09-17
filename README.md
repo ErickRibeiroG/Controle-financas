@@ -89,3 +89,14 @@ python manage.py runserver
 
 
 
+
+
+## Organização do código
+
+- `core/models.py`: entidades de categoria, conta e transação.
+- `core/forms.py`: validação e gravação dos formulários de cadastro e edição.
+- `core/views.py`: fluxo das páginas, seleção dos formulários e consultas para os templates.
+- `analytics/analysis.py`: totais financeiros usados no painel principal.
+- `analytics/reports.py`: filtros, agrupamentos e gráficos dos relatórios.
+- `analytics/views.py`: entrega do relatório ao template.
+- `core/tests.py` e `analytics/tests.py`: testes dos fluxos principais.
