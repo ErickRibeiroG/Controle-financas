@@ -69,11 +69,11 @@ cd Controle-financas
 
 ### 5️⃣ Crie o ambiente virtual
 No terminal:
-python -m venv env
+python -m venv .venv
 
 ### 6️⃣ Ative o ambiente virtual
 No terminal (Windows):
-env\Scripts\activate
+.venv\Scripts\activate
 
 ### 7️⃣ Instale as dependências
 No terminal:
