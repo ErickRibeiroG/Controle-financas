@@ -61,7 +61,7 @@ Além das operações de CRUD, o sistema possui uma **camada analítica**, onde 
 
 ### 3️⃣ Clone o repositório
 No terminal:
-git clone https://github.com/Erick22Ribeiro/Controle-financas.git
+git clone https://github.com/ErickRibeiroG/Controle-financas.git
 
 ### 4️⃣ Acesse a pasta do projeto
 No terminal:
