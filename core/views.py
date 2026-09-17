@@ -66,7 +66,7 @@ def financas(request):
         elif tipo_form == 'contas':
 
             nome = request.POST.get('nome_conta')
-            saldo_inicial = request.POST.get('saldo_inicial')
+            saldo_inicial = (request.POST.get('saldo_inicial') or '').strip().replace(',', '.') or '0'
 
             Conta.objects.create(
                 nome = nome,
@@ -77,6 +77,8 @@ def financas(request):
 
     context = {
         **resumo_financas,
+        'categorias': Categoria.objects.all(),
+        'contas': Conta.objects.all(),
     }
 
     return render(request, 'core/home.html', context)
